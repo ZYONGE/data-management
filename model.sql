@@ -1,8 +1,45 @@
+/* ████████████████████████████████████████████████████████████
+   K리그 실습 스키마 만들기 (STADIUM / TEAM / SCHEDULE / PLAYER)
+   ------------------------------------------------------------
+   DQL.sql / DML.sql / JOIN.sql / GROUP_BY.sql 의 K리그 문제는 모두
+   이 파일로 만든 테이블과 데이터를 쓴다. 가장 먼저 한 번 실행할 것.
+
+   테이블 관계 (부모 ─< 자식)
+     STADIUM ─┬─< TEAM ─< PLAYER
+              └─< SCHEDULE
+
+   파일 구성
+     ① DROP TABLE  : 기존 테이블 삭제 (다시 실행해도 처음 상태로 초기화되게)
+     ② CREATE TABLE: 테이블 4개 생성 (PK / FK / NOT NULL 제약조건 포함)
+     ③ INSERT      : 샘플 데이터 (경기장 20 / 팀 15 / 경기 180 / 선수 480)
+     ④ COMMIT      : 테이블마다 넣고 나서 확정
+   ████████████████████████████████████████████████████████████ */
+
+
+/* ============================================================
+   ① 기존 테이블 삭제
+   ------------------------------------------------------------
+   - ★ 삭제 순서 : 자식 → 부모. (PLAYER → SCHEDULE → TEAM → STADIUM)
+     부모(STADIUM)를 먼저 지우려 하면 자식(TEAM)의 FK 가 참조하고 있어서
+     ORA-02449 (unique/primary keys referenced by foreign keys) 오류가 난다.
+   - 맨 처음 실행할 때는 테이블이 없어서 ORA-00942 가 나는데 정상이다.
+   ============================================================ */
 drop table PLAYER;
 drop table SCHEDULE;
 drop table TEAM;
 drop table STADIUM;
 
+/* ============================================================
+   ② 테이블 생성 — 부모 → 자식 순서 (삭제와 반대)
+   ------------------------------------------------------------
+   - 자식의 FK 는 이미 존재하는 부모 테이블만 참조할 수 있으므로
+     STADIUM → TEAM → SCHEDULE → PLAYER 순서로 만든다.
+   - CHAR(3)     : 항상 3글자 고정 길이 (ID 처럼 길이가 정해진 값)
+     VARCHAR2(n) : 최대 n바이트 가변 길이 (이름처럼 길이가 제각각인 값)
+     NUMBER(n)   : 최대 n자리 숫자
+   ============================================================ */
+
+-- STADIUM : 경기장. PK = STADIUM_ID. DDD 는 지역번호 (예: '031' 경기도)
 CREATE TABLE STADIUM (
 STADIUM_ID    CHAR(3) NOT NULL,
 STADIUM_NAME  VARCHAR2(40) NOT NULL,
@@ -14,6 +51,7 @@ TEL           VARCHAR2(10),
 CONSTRAINT STADIUM_PK PRIMARY KEY (STADIUM_ID)
 );
 
+-- TEAM : 팀. PK = TEAM_ID. FK STADIUM_ID → STADIUM (팀의 홈 경기장)
 CREATE TABLE TEAM (
 TEAM_ID     CHAR(3) NOT NULL,
 REGION_NAME VARCHAR2(8) NOT NULL,
@@ -33,6 +71,10 @@ CONSTRAINT TEAM_PK PRIMARY KEY (TEAM_ID),
 CONSTRAINT TEAM_FK FOREIGN KEY (STADIUM_ID) REFERENCES STADIUM(STADIUM_ID)
 );
 
+-- SCHEDULE : 경기 일정과 점수.
+--   PK = (STADIUM_ID, SCHE_DATE) 복합키 → "같은 경기장, 같은 날"에는 한 경기만.
+--   SCHE_DATE 는 DATE 가 아니라 'YYYYMMDD' 형식의 CHAR(8) 문자열.
+--   HOME_SCORE / AWAY_SCORE 가 NULL 이면 아직 치르지 않은 경기.
 CREATE TABLE SCHEDULE (
 STADIUM_ID   CHAR(3) NOT NULL,
 SCHE_DATE    CHAR(8) NOT NULL,
@@ -45,6 +87,8 @@ CONSTRAINT SCHEDULE_PK PRIMARY KEY (STADIUM_ID, SCHE_DATE),
 CONSTRAINT SCHEDULE_FK FOREIGN KEY (STADIUM_ID) REFERENCES STADIUM(STADIUM_ID)
 );
 
+-- PLAYER : 선수. PK = PLAYER_ID. FK TEAM_ID → TEAM (소속 팀)
+--   HEIGHT / WEIGHT / POSITION 등은 NULL 이 있을 수 있다. (조회 문제에서 IS NULL 연습용)
 CREATE TABLE  PLAYER (
 PLAYER_ID     CHAR(7) NOT NULL,
 PLAYER_NAME   VARCHAR2(20) NOT NULL,
@@ -63,6 +107,18 @@ CONSTRAINT PLAYER_PK PRIMARY KEY (PLAYER_ID),
 CONSTRAINT PLAYER_FK FOREIGN KEY (TEAM_ID) REFERENCES TEAM(TEAM_ID)
 );
 
+
+/* ============================================================
+   ③ 샘플 데이터 넣기 — 이것도 부모 → 자식 순서
+   ------------------------------------------------------------
+   - 컬럼 목록을 생략한 INSERT 라서 값은 테이블 정의 순서대로 적혀 있다.
+   - '' (빈 문자열) : Oracle 에서는 빈 문자열을 NULL 로 취급한다.
+     (HOMETEAM_ID 가 '' 인 경기장 = 홈팀이 없는 경기장)
+   - 숫자 컬럼에 '27085' 처럼 따옴표 친 값이 섞여 있어도 Oracle 이
+     자동으로 숫자로 바꿔(암시적 형 변환) 넣어 준다.
+   ============================================================ */
+
+-- 경기장 20건
 INSERT INTO stadium VALUES ('D03','전주월드컵경기장','K05',28000,'전북 전주시 덕진구 반월동 763-1','063','273-1763');
 INSERT INTO stadium VALUES ('B02','성남종합운동장','K08',27000,'경기도 성남시 분당구 야탑동 486','031','753-3956');
 INSERT INTO stadium VALUES ('C06','포항스틸야드','K03',25000,'경북 포항시 남구 괴동 1','054','282-2002');
@@ -85,6 +141,7 @@ INSERT INTO stadium VALUES ('F04','마산경기장','',20000,'경남 마산시',
 INSERT INTO stadium VALUES ('F05','안양경기장','',20000,'경기도 안양시','031','');
 commit;
 
+-- 팀 15건 (STADIUM 이 먼저 있어야 FK 가 통과한다)
 INSERT INTO team VALUES ('K05','전북','현대모터스','CHUNBUK HYUNDAI MOTORS FC','1995','D03','560','190',
 '전북 전주시 덕진구 반월동 763-1 전주월드컵경기장 내','063','273-1763','273-1762','http://www.hyundai-motorsfc.com','');
 INSERT INTO team VALUES ('K08','성남','일화천마','SEONGNAM ILHWA CHUNMA FC','1988','B02','462',
@@ -117,6 +174,7 @@ INSERT INTO team VALUES ('K15','대구','대구FC','DAEGU FC','2002','A05','777'
 '대구광역시 수성구 대흥동 504 대구스타디움 내','053','5566-3967','5566-3970','http://www.daegufc.co.kr','');
 commit;
 
+-- 경기 일정 180건
 INSERT INTO schedule VALUES ('C02','20120501','Y','K06','K10','2','0');
 INSERT INTO schedule VALUES ('B04','20120505','Y','K02','K01','1','2');
 INSERT INTO schedule VALUES ('B05','20120505','Y','K09','K08','1','3');
@@ -299,6 +357,10 @@ INSERT INTO schedule VALUES ('C06','20120904','Y','K03','K10','0','0');
 INSERT INTO schedule VALUES ('C02','20120904','Y','K06','K07','2','2');
 commit;
 
+-- 선수 480건
+--   TO_DATE('30-AUG-1987', 'DD_MON_YYYY', 'NLS_DATE_LANGUAGE = AMERICAN')
+--   : 문자열을 DATE 로 바꾼다. 월 이름이 영어(AUG)라서 세 번째 인자로
+--     "영어 월 이름으로 읽어라"고 지정했다. (한국어 환경에서도 오류가 안 나게)
 INSERT INTO player VALUES ('2009175','우르모브','K06','','','2009','DF','4','유고',TO_DATE('30-AUG-1987','DD_MON_YYYY','NLS_DATE_LANGUAGE = AMERICAN'),'1','180','70');
 INSERT INTO player VALUES ('2007188','윤희준','K06','','','2005','DF','15','',TO_DATE('01-NOV-1982','DD_MON_YYYY','NLS_DATE_LANGUAGE = AMERICAN'),'1','180','74');
 INSERT INTO player VALUES ('2012073','김규호','K06','','','2011','DF','23','',TO_DATE('13-JUL-1989','DD_MON_YYYY','NLS_DATE_LANGUAGE = AMERICAN'),'1','177','72');

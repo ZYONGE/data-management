@@ -39,33 +39,41 @@ Source code for the **Data Management** course
 **University:** Tech University of Korea (TUK)
 
 This repository contains Oracle SQL practice code written while studying Data Management.
-All exercises run against a K League soccer sample schema (`STADIUM`, `TEAM`, `SCHEDULE`, `PLAYER`) created by [model.sql](model.sql).
+Most exercises run against a K League soccer sample schema (`STADIUM`, `TEAM`, `SCHEDULE`, `PLAYER`) created by [model.sql](model.sql).
+The join, grouping and set-operation exercises also use the classic `EMP` / `DEPT` / `SALGRADE` schema created by [emp_dept_salgrade.sql](emp_dept_salgrade.sql).
 
 The purpose of this project is to:
 
 - build a practice schema with DDL and load sample data with DML
 - practice core SQL querying (`SELECT`, `WHERE`, `ORDER BY`) on Oracle
-- keep lecture exercises organised by statement category (DDL / DML / DQL)
+- practice joins, `GROUP BY` / `HAVING`, and set operators
+- keep lecture exercises organised by topic (DDL / DML / DQL / JOIN / GROUP BY / SET OPERATION)
 
 ---
 ## Project Structure
 
 ```
 DataManagement/
-├── model.sql              # Practice schema: DROP/CREATE tables + sample data INSERTs
-├── DDL.sql                # Data Definition: DESC, DROP TABLE, CREATE TABLE AS SELECT
-├── DML.sql                # Data Manipulation: INSERT, UPDATE, DELETE, COMMIT
+├── model.sql              # K League schema: DROP/CREATE tables + sample data INSERTs
+├── emp_dept_salgrade.sql  # EMP / DEPT / SALGRADE schema for join & grouping exercises
+├── DDL.sql                # Data Definition: DESC, DROP, CTAS, CREATE with constraints, ALTER, RENAME
+├── DML.sql                # Data Manipulation: INSERT, INSERT ALL, UPDATE, DELETE, ON DELETE CASCADE, COMMIT
 ├── DQL.sql                # Data Query: SELECT, operators, LIKE, BETWEEN, IN, NOT
+├── JOIN.sql               # Joins: INNER, OUTER, CROSS, SELF, Non-EQUI, multi-table, CASE
+├── GROUP_BY.sql           # Aggregate functions, GROUP BY, HAVING (with joins)
+├── SET_OPERATION.sql      # UNION / UNION ALL / INTERSECT / MINUS
 ├── LICENSE                # MIT License
 ├── .gitignore
 └── README.md
 ```
 
-Files are organised by SQL statement category, not by lecture date.
-Every statement carries a comment explaining its syntax.
+Files are organised by topic, not by lecture date.
+Every statement carries a comment (in Korean) explaining what it does, written as exam-study notes.
 
 Run order when starting from an empty schema:
-`model.sql` → `DDL.sql` → `DML.sql` → `DQL.sql`
+`model.sql` → `emp_dept_salgrade.sql` → `DDL.sql` → `DML.sql` → `DQL.sql` → `JOIN.sql` → `GROUP_BY.sql` → `SET_OPERATION.sql`
+
+Some `DDL.sql` blocks copy data from tables filled in `DML.sql`; the header of `DDL.sql` gives the exact interleaving order.
 
 ---
 ## Practice Schema (`model.sql`)
@@ -116,13 +124,36 @@ The script drops the tables in reverse dependency order (`PLAYER` → `SCHEDULE`
   - Written order: `SELECT → FROM → WHERE → ORDER BY`
   - Execution order: `FROM → WHERE → SELECT → ORDER BY`
 
+### Constraints and ALTER TABLE
+- Named constraints (`CONSTRAINT name ...`): `PRIMARY KEY`, `UNIQUE`, `CHECK`, `FOREIGN KEY`, `DEFAULT`
+- Column-level vs table-level constraint syntax
+- `ON DELETE CASCADE` and what happens without it (`ORA-02292`)
+- `ALTER TABLE ... ADD / MODIFY / RENAME COLUMN / DROP COLUMN`, `RENAME` for tables
+- `CREATE TABLE ... AS SELECT` copies only `NOT NULL` constraints
+
+### Joins
+- Oracle (`FROM A, B WHERE`) vs ANSI (`JOIN ... ON`) syntax
+- `INNER`, `LEFT` / `RIGHT` / `FULL OUTER`, `CROSS`, `SELF`, and Non-EQUI joins
+- Joining three tables and chaining `LEFT OUTER JOIN`s
+- `CASE` expressions in the `SELECT` list
+
+### Grouping
+- Aggregate functions and how they treat `NULL` (`COUNT(*)` vs `COUNT(col)`)
+- `GROUP BY` on one or more columns, filtering groups with `HAVING`
+- Every non-aggregated `SELECT` column must appear in `GROUP BY`
+
+### Set Operations
+- `UNION` vs `UNION ALL`, `INTERSECT`, `MINUS`
+- `FULL OUTER JOIN` = `LEFT OUTER JOIN` `UNION` `RIGHT OUTER JOIN`
+
 ---
 ## How to Run
 
 1. Connect to an Oracle Database in Oracle SQL Developer (or SQL\*Plus).
 2. Run [model.sql](model.sql) as a script to create the tables and load the sample data.
    - On the very first run the `DROP TABLE` lines fail because the tables don't exist yet; that is expected.
-3. Open a dated practice file (e.g. [0930/model_check.sql](0930/model_check.sql)) and run each statement.
+3. Run [emp_dept_salgrade.sql](emp_dept_salgrade.sql) for the join / grouping / set-operation exercises.
+4. Open a topic file (e.g. [JOIN.sql](JOIN.sql)) and run each statement.
 
 ---
 

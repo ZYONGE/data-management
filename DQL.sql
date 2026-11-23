@@ -451,3 +451,78 @@ WHERE HOME_SCORE + AWAY_SCORE >= 4
   AND (HOME_SCORE >= 3 OR AWAY_SCORE >= 3)
   AND HOME_SCORE <> AWAY_SCORE
 ORDER BY "총득점" DESC, SCHE_DATE ASC;
+
+
+/* ████ 추가 연습 — WHERE 조건 조합 ████████████████████████████ */
+
+/* ============================================================
+   [14-1] 비교 연산자 + 등호 : 키 180 이상인 공격수
+   ------------------------------------------------------------
+   - 조건 두 개를 AND 로 묶으면 "둘 다" 참인 행만 남는다.
+   - 'FW' 는 문자 값이라 작은따옴표, 180 은 숫자라 따옴표 없음.
+   ============================================================ */
+SELECT PLAYER_NAME, POSITION, HEIGHT
+FROM PLAYER
+WHERE HEIGHT >= 180
+  AND POSITION = 'FW';
+
+
+/* ============================================================
+   [14-2] BETWEEN + IN : 키 170~185 이고 포지션이 FW 또는 MF
+   ------------------------------------------------------------
+   - BETWEEN 170 AND 185 : 170 과 185 를 "포함"한다. ([10] 참고)
+   - IN ('FW', 'MF') = (POSITION = 'FW' OR POSITION = 'MF') ([11] 참고)
+   - OR 를 직접 쓸 때는 괄호가 꼭 필요하지만, IN 을 쓰면 괄호 실수를 피할 수 있다.
+       WHERE HEIGHT BETWEEN 170 AND 185 AND POSITION = 'FW' OR POSITION = 'MF'
+       → AND 가 먼저 계산되어 "키와 상관없는 모든 MF" 가 섞여 나온다. (틀린 예)
+   ============================================================ */
+SELECT PLAYER_NAME, POSITION, HEIGHT
+FROM PLAYER
+WHERE HEIGHT BETWEEN 170 AND 185
+  AND POSITION IN ('FW', 'MF');
+
+
+/* ============================================================
+   [14-3] LIKE + IS NOT NULL : 이름에 '김' 이 들어가고 키 정보가 있는 선수
+   ------------------------------------------------------------
+   - '%김%' : 앞뒤 아무 글자나 와도 되므로 성뿐 아니라 이름 중간의 '김' 도 찾는다.
+     (성이 김인 선수만 찾으려면 '김%')
+   - HEIGHT IS NOT NULL : 키가 비어 있는 선수 제외. = NULL 로는 못 찾는다. ([9] 참고)
+   ============================================================ */
+SELECT PLAYER_NAME, HEIGHT
+FROM PLAYER
+WHERE PLAYER_NAME LIKE '%김%'
+  AND HEIGHT IS NOT NULL;
+
+
+/* ============================================================
+   [14-4] 조건 5개 조합 : FW/MF, 키 175 이상, 몸무게 70~85 (NULL 제외)
+   ------------------------------------------------------------
+   - IN, >=, BETWEEN, IS NOT NULL 을 모두 AND 로 연결.
+   - ★ 생각해 볼 점 : 마지막 두 IS NOT NULL 은 사실 없어도 결과가 같다.
+     HEIGHT 가 NULL 이면 HEIGHT >= 175 가 UNKNOWN 이 되어 이미 걸러지기 때문.
+     (WEIGHT 의 BETWEEN 도 마찬가지)
+     → 비교 조건이 있는 컬럼은 NULL 이 자동으로 빠진다. 다만 문제에서
+       "NULL 제외" 를 명시했으므로 의도를 분명히 하려고 적어 둔 것.
+   ============================================================ */
+SELECT PLAYER_NAME, POSITION, HEIGHT, WEIGHT
+FROM PLAYER
+WHERE POSITION IN ('FW', 'MF')
+  AND HEIGHT >= 175
+  AND WEIGHT BETWEEN 70 AND 85
+  AND HEIGHT IS NOT NULL
+  AND WEIGHT IS NOT NULL;
+
+
+/* ============================================================
+   [14-5] NOT LIKE + IN : 성이 '김'이 아닌 수비수·골키퍼
+   ------------------------------------------------------------
+   - NOT LIKE '김%' : '김' 으로 "시작하지 않는" 이름.
+     (이름 중간에 '김' 이 있는 선수는 결과에 나온다. 첫 글자만 본다)
+   - IN ('DF', 'GK') : 수비수 또는 골키퍼.
+   - SELECT 에 TEAM_ID 를 넣어 어느 팀 소속인지도 함께 확인.
+   ============================================================ */
+SELECT PLAYER_NAME, POSITION, TEAM_ID
+FROM PLAYER
+WHERE PLAYER_NAME NOT LIKE '김%'
+  AND POSITION IN ('DF', 'GK');

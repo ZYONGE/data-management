@@ -11,6 +11,8 @@
 
    선행 조건 : [7]번 PLAYER_PRACTICE 실습은 DDL.sql 에서
                테이블을 먼저 만들어야 동작한다.
+               [9]~[11] STUDENT / PRODUCT / ORDERS 실습도 DDL.sql [4]~[8] 이 먼저다.
+               (실행 순서 전체는 DDL.sql 맨 위 설명 참고)
    ████████████████████████████████████████████████████████████ */
 
 
@@ -280,3 +282,100 @@ ORDER BY PLAYER_NAME ASC;
      커밋하지 않은 DML이 함께 확정되어 버리는 점에 주의.
    ============================================================ */
 COMMIT;
+
+
+/* ████ 실습 — STUDENT / PRODUCT / ORDERS 테이블 ██████████████████
+   ※ 선행 : DDL.sql [4] ~ [8] 로 테이블을 먼저 만들어 둘 것.
+     [11] 은 DDL.sql [11] (ON DELETE CASCADE 로 FK 재생성) 이후에 실행.
+   ████████████████████████████████████████████████████████████ */
+
+/* ============================================================
+   [9] 학생 4명 넣기 : 컬럼 목록 생략 + DATE 리터럴
+   ------------------------------------------------------------
+   - 컬럼 목록을 생략했으므로 테이블에 정의된 순서
+     (student_id, name, email, date_of_birth, major) 대로 5개 값을 모두 적었다. ([2] 참고)
+   - DATE '2000-05-14' : ANSI 날짜 리터럴. 형식이 'YYYY-MM-DD' 로 고정돼 있어서
+     세션의 날짜 형식 설정(NLS_DATE_FORMAT)과 상관없이 항상 같은 날짜로 해석된다.
+     → TO_DATE('2000-05-14', 'YYYY-MM-DD') 와 같은 값.
+   - email 은 UNIQUE 이므로 같은 이메일로 한 번 더 넣으면 ORA-00001.
+     student_id 는 PK 라서 같은 학번을 또 넣어도 ORA-00001.
+   - 여기에는 COMMIT 이 없다. 하지만 이어서 DDL.sql [9] 의 CREATE TABLE 을
+     실행하는 순간 DDL 의 자동 커밋 때문에 이 INSERT 들도 함께 확정된다. ([8] 참고)
+   ============================================================ */
+INSERT INTO STUDENT VALUES (2024001001, 'Jennie', 'jennk@tukorea.ac.kr', DATE '2000-05-14', 'IT');
+INSERT INTO STUDENT VALUES (2024001002, 'Jisoo',  'jisoo@tukorea.ac.kr', DATE '2001-06-10', 'DS');
+INSERT INTO STUDENT VALUES (2024001003, 'Rose',   'rosep@tukorea.ac.kr', DATE '2002-10-01', 'MIS');
+INSERT INTO STUDENT VALUES (2024001004, 'Lisa',   'lisa@tukorea.ac.kr',  DATE '2003-11-10', 'CS');
+
+SELECT * FROM STUDENT;
+
+
+/* ============================================================
+   [10] 상품 데이터 : INSERT ALL → UPDATE → DELETE 를 차례로
+   ------------------------------------------------------------
+   ① INSERT ALL : 3건을 한 문장으로 넣는다. ([3] 참고)
+      INTO 절에 컬럼 목록이 없으므로 테이블 정의 순서
+      (PRODUCT_ID, PRODUCT_NAME, PRICE, CATEGORY, STOCK) 대로 값을 적었다.
+   ② UPDATE ... SET PRICE = PRICE * 1.1 : Electronics 상품만 가격 10% 인상.
+      Laptop 1500000 → 1650000, Mouse 30000 → 33000, Desk(Furniture) 는 그대로.
+      PRICE 는 NUMBER(10) 이라 계산 결과에 소수가 생기면 반올림되어 정수로 저장된다.
+   ③ DELETE ... WHERE A OR B : 둘 중 하나라도 참이면 삭제.
+      가격 50000 미만 → Mouse(33000) 삭제. 재고 0 인 상품은 없음.
+      → 남는 상품 : Laptop, Desk
+   - DML 은 앞 문장의 결과가 다음 문장의 대상을 바꾼다. 반드시 ① → ② → ③ 순서로.
+   - 단계마다 COMMIT 으로 확정하고 SELECT 로 결과를 확인하는 습관.
+   ============================================================ */
+-- ① 3건 삽입
+INSERT ALL
+    INTO PRODUCT VALUES (101, 'Laptop', 1500000, 'Electronics', 10)
+    INTO PRODUCT VALUES (102, 'Mouse',    30000, 'Electronics', 50)
+    INTO PRODUCT VALUES (103, 'Desk',    200000, 'Furniture',   20)
+SELECT * FROM DUAL;
+COMMIT;
+
+SELECT * FROM PRODUCT;
+
+-- ② Electronics 가격 10% 인상
+UPDATE PRODUCT
+SET PRICE = PRICE * 1.1
+WHERE CATEGORY = 'Electronics';
+COMMIT;
+
+SELECT * FROM PRODUCT;
+
+-- ③ 가격 50000 미만 또는 재고 0 인 상품 삭제
+DELETE FROM PRODUCT
+WHERE PRICE < 50000
+   OR STOCK = 0;
+COMMIT;
+
+SELECT * FROM PRODUCT;
+
+
+/* ============================================================
+   [11] ON DELETE CASCADE 확인 : 부모를 지우면 자식도 지워지는가?
+   ------------------------------------------------------------
+   ※ 선행 : DDL.sql [11] 로 ORDERS_FK 를 ON DELETE CASCADE 로 다시 만든 상태.
+
+   ① 101번 상품(Laptop)에 대한 주문 1001 을 넣는다.
+      ORDER_DATE 를 생략했으므로 DEFAULT SYSDATE 로 오늘 날짜가 들어간다.
+      (PRODUCT 에 101 이 있어야 넣을 수 있다. 없으면 ORA-02291)
+   ② 부모인 PRODUCT 에서 101 을 삭제한다.
+      - CASCADE 가 없었다면 : 주문이 참조 중이라 삭제 실패 → ORA-02292
+      - CASCADE 가 있으므로 : 101 을 참조하는 주문 1001 도 자동으로 삭제
+   ③ ORDERS 에서 1001 을 조회해 0건이면 함께 지워진 것.
+      PRODUCT 에는 Desk(103) 만 남는다.
+   ============================================================ */
+-- ① 주문 넣기
+INSERT INTO ORDERS (ORDER_ID, PRODUCT_ID, QUANTITY) VALUES (1001, 101, 2);
+COMMIT;
+
+SELECT * FROM ORDERS;
+
+-- ② 부모 행 삭제
+DELETE FROM PRODUCT WHERE PRODUCT_ID = 101;
+COMMIT;
+
+-- ③ 결과 확인
+SELECT * FROM ORDERS WHERE ORDER_ID = 1001;   -- 결과 0건이면 함께 삭제된 것
+SELECT * FROM PRODUCT;
